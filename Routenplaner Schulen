@@ -1,0 +1,295 @@
+
+
+
+<!DOCTYPE html>
+
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ITK Rheinland - Schulrouten-Planer Neuss</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        :root {
+            --itk-blue: #0066CC; --itk-blue-dark: #004C99; --itk-blue-light: #3399FF;
+            --itk-black: #1a1a1a; --itk-gray: #2d2d2d; --itk-gray-light: #3a3a3c;
+            --text-primary: #f5f5f7; --text-secondary: #a1a1a6;
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: linear-gradient(135deg, var(--itk-black) 0%, var(--itk-gray) 100%); color: var(--text-primary); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin-bottom: 8px; }
+        .header .subtitle { font-size: 14px; color: var(--itk-blue-light); font-weight: 500; }
+        .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .control-section, .map-container, .route-list { background: rgba(44, 44, 46, 0.95); backdrop-filter: blur(20px); border-radius: 12px; padding: 20px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4); }
+        .map-container { height: 500px; }
+        #map { width: 100%; height: 100%; border-radius: 8px; background: var(--itk-gray); }
+        label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+        select { width: 100%; padding: 12px 14px; background: var(--itk-black); border: 1px solid var(--itk-gray-light); border-radius: 8px; color: var(--text-primary); font-size: 15px; cursor: pointer; transition: all 0.2s ease; margin-bottom: 12px; }
+        select:hover { border-color: var(--itk-blue); }
+        select:focus { outline: none; border-color: var(--itk-blue); box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1); }
+        .button-group { display: flex; gap: 10px; margin-bottom: 16px; }
+        button { flex: 1; padding: 12px 18px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-pickup { background: var(--itk-blue); color: white; }
+        .btn-pickup:hover { background: var(--itk-blue-dark); transform: translateY(-1px); }
+        .btn-delivery { background: var(--itk-blue-light); color: white; }
+        .btn-delivery:hover { background: var(--itk-blue); transform: translateY(-1px); }
+        .btn-optimize { background: linear-gradient(135deg, var(--itk-blue) 0%, var(--itk-blue-dark) 100%); color: white; }
+        .btn-optimize:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0, 102, 204, 0.4); }
+        .btn-clear { background: var(--itk-gray-light); color: var(--text-primary); }
+        .btn-clear:hover { background: #48484a; transform: translateY(-1px); }
+        .btn-nav { background: linear-gradient(135deg, var(--itk-blue) 0%, var(--itk-blue-dark) 100%); color: white; padding: 14px 20px; font-size: 16px; }
+        .btn-nav:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 102, 204, 0.5); }
+        .route-list { min-height: 300px; max-height: 500px; overflow-y: auto; }
+        .route-list h2 { font-size: 18px; font-weight: 600; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+        .route-item { background: var(--itk-black); padding: 12px 14px; border-radius: 8px; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; transition: all 0.2s ease; border: 1px solid var(--itk-gray-light); }
+        .route-item:hover { background: var(--itk-gray); transform: translateX(2px); border-color: var(--itk-blue); }
+        .route-info { display: flex; align-items: center; gap: 12px; flex: 1; }
+        .route-number { background: var(--itk-blue); color: white; width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 13px; flex-shrink: 0; }
+        .route-details { flex: 1; }
+        .route-name { font-weight: 500; font-size: 14px; margin-bottom: 4px; }
+        .route-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .route-type { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+        .type-pickup { background: rgba(0, 102, 204, 0.2); color: var(--itk-blue-light); }
+        .type-delivery { background: rgba(51, 153, 255, 0.2); color: var(--itk-blue-light); }
+        .route-itas { font-size: 11px; color: var(--text-secondary); font-family: 'Courier New', monospace; }
+        .route-email { font-size: 10px; color: var(--itk-blue-light); font-family: 'Courier New', monospace; }
+        .btn-remove { background: #ff3b30; color: white; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; border: none; cursor: pointer; transition: all 0.2s ease; }
+        .btn-remove:hover { background: #d93026; transform: scale(1.05); }
+        .empty-state { text-align: center; padding: 40px 20px; color: var(--text-secondary); }
+        .empty-state .icon { font-size: 48px; margin-bottom: 12px; opacity: 0.4; }
+        button:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+        .icon { width: 16px; height: 16px; fill: currentColor; }
+        @media (max-width: 900px) { .main-grid { grid-template-columns: 1fr; } .map-container { height: 400px; } }
+        .leaflet-popup-content-wrapper { background: var(--itk-black); color: var(--text-primary); border-radius: 8px; }
+        .leaflet-popup-tip { background: var(--itk-black); }
+        .route-list::-webkit-scrollbar { width: 8px; }
+        .route-list::-webkit-scrollbar-track { background: var(--itk-black); border-radius: 4px; }
+        .route-list::-webkit-scrollbar-thumb { background: var(--itk-blue); border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Schulrouten-Planer Neuss</h1>
+            <div class="subtitle">ITK Rheinland</div>
+        </div>
+        <div class="main-grid">
+            <div>
+                <div class="control-section">
+                    <label for="startPoint">Startpunkt</label>
+                    <select id="startPoint">
+                        <option value="current">Aktueller Standort</option>
+                        <option value="ITK Rheinland, Hamfelddamm 4, 41469 Neuss|51.1985|6.6950" selected>ITK Rheinland (Hamfelddamm 4)</option>
+                    </select>
+                    <label for="schoolSelect">Schule auswählen</label>
+                    <select id="schoolSelect"><option value="">-- Schule wählen --</option></select>
+                    <div class="button-group">
+                        <button class="btn-pickup" onclick="addStop('pickup')">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                            Abholung
+                        </button>
+                        <button class="btn-delivery" onclick="addStop('delivery')">
+                            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                            Lieferung
+                        </button>
+                    </div>
+                </div>
+                <div class="route-list">
+                    <h2><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>Route (<span id="stopCount">0</span> Stopps)</h2>
+                    <div id="routeItems"></div>
+                </div>
+                <div class="control-section">
+                    <div class="button-group">
+                        <button class="btn-optimize" onclick="optimizeRoute()"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>Route optimieren</button>
+                        <button class="btn-clear" onclick="clearRoute()"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Löschen</button>
+                    </div>
+                    <button class="btn-nav" onclick="openInGoogleMaps()" id="googleBtn" disabled><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>In Google Maps öffnen</button>
+                </div>
+            </div>
+            <div class="map-container"><div id="map"></div></div>
+        </div>
+    </div>
+    <script>
+        let route = [], map, markers = [], routeLine;
+        const schools = [
+            {itas:'446',nrw:'104164',name:'Adolf-Clarenbach-Schule',address:'41462 Neuss, Clarenbachplatz 1',email:'dib.104164@brd.nrw.schule',lat:51.1734,lng:6.7178},
+            {itas:'452',nrw:'104103',name:'Albert-Schweitzer-Schule',address:'41466 Neuss, Tulpenstr. 66',email:'dib.104103@brd.nrw.schule',lat:51.1834,lng:6.6589},
+            {itas:'491',nrw:'165165',name:'Alexander-v.-Humboldt-Gymnasium',address:'41464 Neuss, Bergheimerstr. 233',email:'dib.165165@brd.nrw.schule',lat:51.1623,lng:6.6845},
+            {itas:'432',nrw:'104280',name:'Burgunderschule',address:'41462 Neuss, Burgunderstr. 1',email:'dib.104280@brd.nrw.schule',lat:51.1678,lng:6.7234},
+            {itas:'473',nrw:'199060',name:'Comenius-Schule',address:'41464 Neuss, Weberstr. 90a',email:'dib.100052@brd.nrw.schule',lat:51.1578,lng:6.6812},
+            {itas:'447',nrw:'104188',name:'Die Brücke',address:'41462 Neuss, Weißenberger Weg 151',email:'dib.104188@brd.nrw.schule',lat:51.1689,lng:6.7289},
+            {itas:'4471',nrw:'104188',name:'Die Brücke Dep',address:'41460 Neuss, Heerderstr. 69',email:'dib.104188@brd.nrw.schule',lat:51.2134,lng:6.7289},
+            {itas:'434',nrw:'104310',name:'Dreikönigenschule',address:'41460 Neuss, Im Hammfelddamm 2a',email:'dib.104310@brd.nrw.schule',lat:51.1978,lng:6.6756},
+            {itas:'448',nrw:'104190',name:'Friedrich-von-Bodelschwingh-Schule',address:'41464 Neuss, Weberstr. 49',email:'dib.104190@brd.nrw.schule',lat:51.1567,lng:6.6789},
+            {itas:'484',nrw:'159610',name:'Ganztagsrealschule Norf',address:'41469 Neuss, Feuerbachweg',email:'',lat:51.2267,lng:6.6812},
+            {itas:'454',nrw:'183880',name:'Gebrüder-Grimm-Schule',address:'41469 Neuss, Harfferstr. 9-11',email:'dib.183880@brd.nrw.schule',lat:51.2156,lng:6.6678},
+            {itas:'496',nrw:'191486',name:'Gesamtschule an der Erft',address:'41466 Neuss, Aurinstr. 59',email:'dib.191486@brd.nrw.schule',lat:51.1756,lng:6.6523},
+            {itas:'4961',nrw:'191486',name:'Gesamtschule an der Erft Dep',address:'41466 Neuss, Am Lindenplatz 29',email:'dib.191486@brd.nrw.schule',lat:51.1789,lng:6.6545},
+            {itas:'497',nrw:'196174',name:'Gesamtschule Nordstadt',address:'41462 Neuss, Leostr. 37',email:'dib.196174@brd.nrw.schule',lat:51.1867,lng:6.7123},
+            {itas:'4971',nrw:'196174',name:'Gesamtschule Nordstadt Dep',address:'41462 Neuss, Kaarster. 14',email:'dib.196174@brd.nrw.schule',lat:51.1845,lng:6.7089},
+            {itas:'498',nrw:'198894',name:'Gesamtschule Norf',address:'41469 Neuss, Feuerbachweg 29',email:'dib.198894@brd.nrw.schule',lat:51.2198,lng:6.6734},
+            {itas:'459',nrw:'108133',name:'Geschwister-Scholl-Grundschule',address:'41469 Neuss, Ruhrstr. 38',email:'dib.108133@brd.nrw.schule',lat:51.2234,lng:6.6892},
+            {itas:'436',nrw:'104279',name:'Görresschule',address:'41464 Neuss, Konrad-Adenauer-Ring 67',email:'dib.104279@brd.nrw.schule',lat:51.1645,lng:6.6923},
+            {itas:'453',nrw:'199357',name:'Grundschule Allerheiligen',address:'41470 Neuss, Am Henselsgraben 15',email:'dib.199357@brd.nrw.schule',lat:51.2389,lng:6.6634},
+            {itas:'494',nrw:'165785',name:'Gymnasium Norf',address:'41469 Neuss, Eichenalle 8',email:'dib.165785@brd.nrw.schule',lat:51.2267,lng:6.6912},
+            {itas:'476',nrw:'193276',name:'Herbert-Karrenberg-Schule',address:'41462 Neuss, Neusser Weyhe 20',email:'',lat:51.1723,lng:6.7067},
+            {itas:'495',nrw:'189868',name:'Janusz-Korczak-Gesamtschule',address:'41460 Neuss, Platz am Niedertor 6',email:'dib.189868@brd.nrw.schule',lat:51.1989,lng:6.6912},
+            {itas:'4951',nrw:'189868',name:'Janusz-Korczak-Gesamtschule Dep',address:'41460 Neuss, Schwannstr. 39',email:'dib.189868@brd.nrw.schule',lat:51.1956,lng:6.6945},
+            {itas:'444',nrw:'104243',name:'Karl-Kreiner-Schule',address:'41462 Neuss, Gladbacherstr. 60',email:'dib.104243@brd.nrw.schule',lat:51.1723,lng:6.7123},
+            {itas:'440',nrw:'104231',name:'Kreuzschule',address:'41460 Neuss, Sternstr. 43-45',email:'dib.104231@brd.nrw.schule',lat:51.2003,lng:6.6889},
+            {itas:'430',nrw:'195340',name:'Kyburg',address:'41466 Neuss, Maximilian-Kolbe-Str. 14',email:'dib.195340@brd.nrw.schule',lat:51.1689,lng:6.6534},
+            {itas:'441',nrw:'104220',name:'Leoschule',address:'41462 Neuss, Am Kivitzbusch 30',email:'dib.104220@brd.nrw.schule',lat:51.1812,lng:6.7089},
+            {itas:'493',nrw:'165189',name:'Marie-Curie-Gymnasium',address:'41462 Neuss, Jostenallee 49-51',email:'dib.165189@brd.nrw.schule',lat:51.1734,lng:6.7178},
+            {itas:'4931',nrw:'165189',name:'Marie-Curie-Gymnasium Dep',address:'41462 Neuss, Annostr. 30',email:'dib.165189@brd.nrw.schule',lat:51.1756,lng:6.7145},
+            {itas:'449',nrw:'104206',name:'Martin-Luther-Schule',address:'41460 Neuss, Sternstr. 45',email:'dib.104206@brd.nrw.schule',lat:51.2001,lng:6.6895},
+            {itas:'455',nrw:'107700',name:'Martinus-Schule Holzheim',address:'41472 Neuss, Martinstr. 19-21',email:'dib.107700@brd.nrw.schule',lat:51.1456,lng:6.7234},
+            {itas:'462',nrw:'138022',name:'Maximilian-Kolbe-Schule',address:'41464 Neuss, Bergheimerstr. 213',email:'',lat:51.1634,lng:6.6867},
+            {itas:'443',nrw:'104115',name:'Münsterschule',address:'41460 Neuss, Hafenstr. 29',email:'dib.104115@brd.nrw.schule',lat:51.2089,lng:6.7012},
+            {itas:'492',nrw:'165141',name:'Nelly-Sachs-Gymnasium',address:'41464 Neuss, Eichendorffstr. 65',email:'dib.165141@brd.nrw.schule',lat:51.1712,lng:6.6923},
+            {itas:'437',nrw:'104139',name:'Pestalozzischule',address:'41468 Neuss, Pestalozzistr. 2',email:'dib.104139@brd.nrw.schule',lat:51.2178,lng:6.7345},
+            {itas:'489',nrw:'165130',name:'Quirinus-Gymnasium',address:'41460 Neuss, Sternstr. 49',email:'dib.165130@brd.nrw.schule',lat:51.1978,lng:6.6934},
+            {itas:'486',nrw:'194293',name:'Realschule Holzheim',address:'41472 Neuss, Reuschenbergerstr. 28a',email:'dib.194293@brd.nrw.schule',lat:51.1523,lng:6.7389},
+            {itas:'',nrw:'',name:'Rita-Süssmuth-Realschule',address:'41468 Neuss, Gnadentaler Allee 36 a',email:'dib.194293@brd.nrw.schule',lat:51.2167,lng:6.7201},
+            {itas:'483',nrw:'159130',name:'Realschule Südstadt',address:'41464 Neuss, Weberstr. 90',email:'',lat:51.1578,lng:6.6812},
+            {itas:'457',nrw:'107773',name:'Richard-Schirrman-Schule',address:'41469 Neuss, Hoistener Schulstr. 13-15',email:'dib.107773@brd.nrw.schule',lat:51.2312,lng:6.6734},
+            {itas:'472',nrw:'197970',name:'Sekundarschule Neuss',address:'41468 Neuss, Gnadentaler Allee 36a',email:'',lat:51.2167,lng:6.7201},
+            {itas:'458',nrw:'108145',name:'St.-Andreas-Schule',address:'41469 Neuss, Norfer Schulstr. 13',email:'dib.108145@brd.nrw.schule',lat:51.2289,lng:6.6945},
+            {itas:'438',nrw:'104292',name:'St.-Hubertus-Schule',address:'41466 Neuss, Aurinstr. 57',email:'dib.104292@brd.nrw.schule',lat:51.1745,lng:6.6512},
+            {itas:'439',nrw:'104140',name:'St.-Konrad-Schule',address:'41468 Neuss, Löhrerstr. 7',email:'dib.104140@brd.nrw.schule',lat:51.2234,lng:6.7234},
+            {itas:'442',nrw:'104127',name:'St.-Martinus-Schule',address:'41468 Neuss, Rheinfährstr. 161',email:'dib.104127@brd.nrw.schule',lat:51.2456,lng:6.7456},
+            {itas:'456',nrw:'107694',name:'St.-Stephanus-Schule',address:'41472 Neuss, Birkhofstr. 26',email:'dib.107694@brd.nrw.schule',lat:51.1523,lng:6.7456},
+            {itas:'460',nrw:'108157',name:'St.Peter-Schule',address:'41470 Neuss, Rosellener Schulstr. 9',email:'dib.108157@brd.nrw.schule',lat:51.2445,lng:6.6723},
+            {itas:'488',nrw:'190962',name:'Theodor-Schwann-Kolleg',address:'41469 Neuss, Lahnstr. 2-4',email:'',lat:51.2198,lng:6.6789},
+            {itas:'499',nrw:'',name:'VHS Neuss',address:'41460 Neuss, Brückstraße 1',email:'',lat:51.1989,lng:6.6945}
+        ];
+
+```
+    function initMap() {
+        map = L.map('map').setView([51.198, 6.695], 12);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {attribution: '© OpenStreetMap'}).addTo(map);
+    }
+
+    function populateDropdown() {
+        const sel = document.getElementById('schoolSelect');
+        schools.forEach(s => {
+            const opt = document.createElement('option');
+            opt.value = JSON.stringify(s);
+            opt.text = s.itas ? `${s.name} (ITaS: ${s.itas})` : s.name;
+            sel.appendChild(opt);
+        });
+    }
+
+    function updateMap() {
+        markers.forEach(m => map.removeLayer(m));
+        markers = [];
+        if (routeLine) map.removeLayer(routeLine);
+        if (route.length === 0) { map.setView([51.198, 6.695], 12); return; }
+        const startSel = document.getElementById('startPoint'), startVal = startSel.value;
+        let startCoords = startVal === 'current' ? [51.1985, 6.6950] : [parseFloat(startVal.split('|')[1]), parseFloat(startVal.split('|')[2])];
+        const startIcon = L.divIcon({html: `<div style="background:#0066CC;color:white;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">S</div>`, className: '', iconSize: [32, 32]});
+        const startMarker = L.marker(startCoords, {icon: startIcon}).addTo(map);
+        startMarker.bindPopup('<b>Startpunkt</b><br>' + startSel.options[startSel.selectedIndex].text);
+        markers.push(startMarker);
+        const coords = [startCoords];
+        route.forEach((stop, i) => {
+            const color = stop.type === 'pickup' ? '#0066CC' : '#3399FF';
+            const icon = L.divIcon({html: `<div style="background:${color};color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:12px;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3);">${i+1}</div>`, className: '', iconSize: [28, 28]});
+            const marker = L.marker([stop.lat, stop.lng], {icon: icon}).addTo(map);
+            marker.bindPopup(`<b>${i+1}. ${stop.name}</b><br>${stop.type === 'pickup' ? 'Abholung' : 'Lieferung'}`);
+            markers.push(marker);
+            coords.push([stop.lat, stop.lng]);
+        });
+        routeLine = L.polyline(coords, {color: '#0066CC', weight: 3, opacity: 0.7, dashArray: '10, 5'}).addTo(map);
+        const bounds = L.latLngBounds(coords);
+        map.fitBounds(bounds, {padding: [50, 50]});
+    }
+
+    function updateDisplay() {
+        const container = document.getElementById('routeItems'), stopCount = document.getElementById('stopCount'), googleBtn = document.getElementById('googleBtn');
+        stopCount.textContent = route.length;
+        if (route.length === 0) {
+            container.innerHTML = '<div class="empty-state"><div class="icon">📍</div><p>Noch keine Stopps hinzugefügt.<br>Wähle eine Schule und füge sie als Abholung oder Lieferung hinzu.</p></div>';
+            googleBtn.disabled = true;
+        } else {
+            container.innerHTML = route.map((stop, i) => `
+                <div class="route-item">
+                    <div class="route-info">
+                        <div class="route-number">${i + 1}</div>
+                        <div class="route-details">
+                            <div class="route-name">${stop.name}</div>
+                            <div class="route-meta">
+                                <span class="route-type type-${stop.type}">${stop.type === 'pickup' ? '📦 Abholung' : '🚚 Lieferung'}</span>
+                                ${stop.itas ? `<span class="route-itas">ITaS: ${stop.itas}</span>` : ''}
+                                ${stop.email ? `<span class="route-email">${stop.email}</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn-remove" onclick="removeStop(${i})">✕</button>
+                </div>
+            `).join('');
+            googleBtn.disabled = false;
+        }
+        updateMap();
+    }
+
+    function addStop(type) {
+        const sel = document.getElementById('schoolSelect'), val = sel.value;
+        if (!val) { alert('Bitte wähle zuerst eine Schule aus!'); return; }
+        const school = JSON.parse(val);
+        route.push({...school, type: type});
+        updateDisplay();
+        sel.value = '';
+    }
+
+    function removeStop(index) {
+        route.splice(index, 1);
+        updateDisplay();
+    }
+
+    function clearRoute() {
+        if (route.length === 0) return;
+        if (confirm('Möchtest du wirklich alle Stopps löschen?')) {
+            route = [];
+            updateDisplay();
+        }
+    }
+
+    function optimizeRoute() {
+        if (route.length < 2) { alert('Mindestens 2 Stopps benötigt für Optimierung!'); return; }
+        route.sort((a, b) => {
+            const plzA = a.address.match(/\d{5}/)?.[0] || '';
+            const plzB = b.address.match(/\d{5}/)?.[0] || '';
+            return plzA.localeCompare(plzB);
+        });
+        updateDisplay();
+        alert('✅ Route wurde optimiert nach Postleitzahl!');
+    }
+
+    function openInGoogleMaps() {
+        if (route.length === 0) return;
+        const startSel = document.getElementById('startPoint'), startVal = startSel.value;
+        const maxStops = 9, routesToOpen = Math.ceil(route.length / maxStops);
+        if (routesToOpen > 1) {
+            if (!confirm(`Deine Route hat ${route.length} Stopps. Google Maps unterstützt max. 9 Wegpunkte pro Route. Es werden ${routesToOpen} separate Routen geöffnet. Fortfahren?`)) return;
+        }
+        for (let i = 0; i < routesToOpen; i++) {
+            const start = i * maxStops, end = Math.min((i + 1) * maxStops, route.length), segment = route.slice(start, end);
+            let url = 'https://www.google.com/maps/dir/';
+            if (startVal === 'current') url += 'Current+Location/';
+            else url += encodeURIComponent(startVal.split('|')[0]) + '/';
+            segment.forEach(stop => { url += encodeURIComponent(stop.address) + '/'; });
+            setTimeout(() => { window.open(url, '_blank'); }, i * 500);
+        }
+    }
+
+    initMap();
+    populateDropdown();
+    updateDisplay();
+</script>
+```
+
+</body>
+</html>
